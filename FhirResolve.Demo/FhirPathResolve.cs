@@ -1,27 +1,33 @@
 ﻿using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 namespace FhirResolve.Demo;
 
 public class FhirPathResolve
 {
+
+  //Please note this implementation hard codes the resource name "Patient" and is only for this demo.
+  //The real implementation would dynamically resolve the Resource Type and resourceId from the url provided 
   public ITypedElement? Resolver(string url)
   {
-    CustomResolveTypedElement resolveElementNavigator = new CustomResolveTypedElement();
-
-    //Please note that this Resolve() implementation is not fit for purpose
-    //It is only used for this demo's purpose returning an ITypedElement where the url string contains the string 'Patient' 
+    string[] split = url.Split('/');
+    string resourceId = split.Last();
     string resourceName = "Patient";
+    
     if (url.Contains(resourceName))
     {
-      resolveElementNavigator.Name = resourceName;
-      resolveElementNavigator.InstanceType = resourceName;
-      resolveElementNavigator.Value = resourceName;
-      resolveElementNavigator.Location = url;
-      return resolveElementNavigator.ToScopedNode();
+      var defaultModelFactory = new Hl7.Fhir.Serialization.DefaultModelFactory();
+      Type? type = ModelInfo.GetTypeForFhirType(resourceName);
+      if (type is null)
+      {
+        throw new ApplicationException($"ResourceName of '{resourceName}' can not be converted to a FHIR Type.");
+      }
+      if (defaultModelFactory.Create(type) is DomainResource domainResource)
+      {
+        domainResource.Id = resourceId;
+        return domainResource.ToTypedElement().ToScopedNode();
+      }
+      throw new ApplicationException($"Unable to create a domain resource of type '{type.Name}'.");
     }
-
-
-#pragma warning disable CS8603 // Possible null reference return.
     return null;
-#pragma warning restore CS8603 // Possible null reference return.
   }
 }
